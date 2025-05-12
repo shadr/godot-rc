@@ -16,8 +16,6 @@ signal client_disconnected(peer_id: int)
 		if refuse:
 			pending_peers.clear()
 
-var thread: Thread
-
 
 class PendingPeer:
 	var connect_time: int
@@ -39,16 +37,7 @@ var peers: Dictionary
 func listen(port: int) -> int:
 	assert(not tcp_server.is_listening())
 	var error = tcp_server.listen(port)
-	thread = Thread.new()
-	thread.start(thread_listen)
 	return error
-
-
-func thread_listen() -> void:
-	thread.set_thread_safety_checks_enabled(false)
-	while tcp_server.is_listening():
-		poll()
-		OS.delay_msec(1)
 
 
 func stop() -> void:
@@ -182,8 +171,8 @@ func _connect_pending(p: PendingPeer) -> bool:
 		return false
 
 
-# func _process(_delta: float) -> void:
-# 	poll()
+func _process(_delta: float) -> void:
+	poll()
 
 
 func _exit_tree():

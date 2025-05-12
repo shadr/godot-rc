@@ -1,4 +1,5 @@
 @tool
+class_name RemoteControlPlugin
 extends EditorPlugin
 
 var server: WebSocketServer
@@ -6,15 +7,20 @@ var server: WebSocketServer
 
 func _enter_tree() -> void:
 	server = WebSocketServer.new()
+	server.plugin = self
 	add_child(server)
 	server.listen(6500)
 	server.message_received.connect(on_message)
 	server.client_connected.connect(on_connected)
 
+	scene_changed.connect(_on_scene_changed)
+
 
 func _exit_tree() -> void:
 	server.stop()
 	server.queue_free()
+
+	scene_changed.disconnect(_on_scene_changed)
 
 
 func on_connected(peer_id: int) -> void:
@@ -30,8 +36,8 @@ func on_message(peer_id: int, _message: String) -> void:
 	match parsed.method:
 		"reload-resource":
 			reload_resource(params)
-		# "get-scene-tree":
-		# 	response = get_scene_tree(parsed.params)
+		"get-scene-tree":
+			get_scene_tree(params, peer_id, parsed.id)
 		"insert-onready-variable":
 			response = insert_onready_variable(params)
 		"get-node-classes":
@@ -53,14 +59,6 @@ func send_response(peer_id: int, data, response_id: int):
 func reload_resource(path: String) -> void:
 	ResourceLoader.load("res://first.gdshader", "", ResourceLoader.CACHE_MODE_REPLACE)
 
-
-# func get_scene_tree(peer_id: int, path, response_id: int):
-# 	var scene: PackedScene = load(path)
-# 	var inst: Node = scene.instantiate()
-# 	var tree: Dictionary = {}
-# 	get_node_tree(inst, tree)
-# 	send_response(peer_id, tree, response_id)
-# 	inst.queue_free()
 
 # func get_node_tree(node: Node, tree: Dictionary):
 # 	var parent = null
@@ -89,6 +87,7 @@ func insert_onready_variable(path) -> Array:
 
 
 func get_node_classes() -> PackedStringArray:
+	# TODO: add user defined classes, we can get them from `ProjectSettings`
 	var classes = ClassDB.get_inheriters_from_class("Node")
 	# for cl in
 	# 	var api_type := ClassDB.class_get_api_type(cl)
@@ -105,9 +104,70 @@ func create_scene(path: String, base: String, name: String) -> void:
 		ResourceSaver.save(scene, path)
 
 
+func get_editor_scenes_tabbar() -> TabBar:
+	# TODO: check expected types of parents and children
+	var n = get_editor_interface().get_editor_main_screen().get_parent().get_parent().get_children()
+	var tabbar: TabBar = n[0].get_children()[0].get_children()[0].get_children()[0]
+	return tabbar
+
+
+# func something() -> void:
+# 	var tabbar = get_editor_scenes_tabbar()
+# 	get_editor_interface().open_scene_from_path("res://something.tscn")
+# tabbar.set_current_tab(0)
+# var a = get_editor_interface().get_edited_scene_root()
+# print("AAAAA", get_editor_interface().get_edited_scene_root().scene_file_path)
+# get_editor_interface().open_scene_from_path("res://level.tscn")
+# var b = get_editor_interface().get_edited_scene_root()
+# print("BBBBB", get_editor_interface().get_edited_scene_root().scene_file_path)
+# print(get_editor_interface().get_open_scenes())
+# print(a, b)
+# tabbar.set_current_tab(1)
+
+
+func something() -> void:
+	var tabbar = get_editor_scenes_tabbar()
+	tabbar.set_current_tab(1)
+	var root = get_editor_interface().get_edited_scene_root()
+	print(root.scene_file_path)
+
+	# var scene: PackedScene = load("res://something.tscn")
+	# var state := scene.get_state()
+	# print(state.get_node_property_value(0, 0))
+
+
+func get_scene_tree_helper(path: String, peer_id: int, response_id: int):
+	get_editor_interface().open_scene_from_path("res://something.tscn")
+	var root = get_editor_interface().get_edited_scene_root()
+	send_response(peer_id, root.get_instance_id(), response_id)
+
+
+func get_scene_tree(path: String, peer_id: int, response_id: int):
+	get_scene_tree_helper.call_deferred(path, peer_id, response_id)
+	# var scene: PackedScene = load(path)
+	# var state := scene.get_state()
+	# var tree: Dictionary = {}
+	# get_node_tree(inst, tree)
+
+
 func wip() -> void:
-	var classes = []
-	for cl in ClassDB.get_inheriters_from_class("Node"):
-		var api_type := ClassDB.class_get_api_type(cl)
-		print(cl, api_type)
-		# if api_type == ClassDB.APIType.API_CORE or api_type == ClassDB.APIType.API_EXTENSION:
+	something()
+	# var current_scene: String
+	# if get_editor_interface().get_edited_scene_root():
+	# 	current_scene = get_editor_interface().get_edited_scene_root().scene_file_path
+
+	# open_scene_and_send_node_tree.call_deferred("res://something.tscn", current_scene)
+	# var scene: PackedScene = load("res://level.tscn")
+	# var inst = scene.instantiate()
+	# var state := scene.get_state()
+	# var tree: Dictionary = {}
+	# print(state.get_node_count())
+	# var classes = []
+	# for cl in ClassDB.get_inheriters_from_class("Node"):
+	# 	var api_type := ClassDB.class_get_api_type(cl)
+	# 	print(cl, api_type)
+	# if api_type == ClassDB.APIType.API_CORE or api_type == ClassDB.APIType.API_EXTENSION:
+
+
+func _on_scene_changed(scene_root: Node):
+	print("Scene changed: ", scene_root.scene_file_path)
