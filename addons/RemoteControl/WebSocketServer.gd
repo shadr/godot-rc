@@ -171,6 +171,10 @@ func _connect_pending(p: PendingPeer) -> bool:
 		return false
 
 
+func get_peers() -> Array:
+	return peers.keys()
+
+
 func _process(_delta: float) -> void:
 	poll()
 
