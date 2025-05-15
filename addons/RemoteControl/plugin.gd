@@ -2,6 +2,9 @@
 class_name RemoteControlPlugin
 extends EditorPlugin
 
+# TODO: connect scene_opened signal
+# TODO: add undo-redo history
+
 var server: WebSocketServer
 var previous_scene: Node
 
@@ -12,8 +15,21 @@ var METHODS: Array = [
 	["get-node-classes", get_node_classes, true],
 	["create-scene", create_scene, false],
 	["rename-node", rename_node, false],
-	["wip", wip, false]
+	["save-scene", save_scene, false],
+	["move-node", move_node, true],
+	["remove-node", remove_node, false],
+	["node-change-type", node_change_type, false],
+	["node-add", node_add, false],
+	["wip", wip, false],
 ]
+
+var need_to_notify_scene_change := false
+
+
+func _process(_delta: float) -> void:
+	if need_to_notify_scene_change:
+		need_to_notify_scene_change = false
+		notify_scene_change()
 
 
 func _enter_tree() -> void:
@@ -34,12 +50,12 @@ func _exit_tree() -> void:
 
 
 func on_connected(peer_id: int) -> void:
-	print("[GodotRC] Client connected: ", peer_id)
+	Log.INFO("[GodotRC] Client connected: " + str(peer_id))
 
 
 func on_message(peer_id: int, _message: String) -> void:
 	var message: String = _message.strip_edges()
-	print("[GodotRC] Received message: ", message)
+	Log.TRACE("[GodotRC] Received message: " + message)
 	var parsed: Dictionary = JSON.parse_string(message)
 	var params = parsed.params
 	var response = null
@@ -55,7 +71,7 @@ func on_message(peer_id: int, _message: String) -> void:
 			else:
 				callable.call(params)
 	if not known_method:
-		push_warning("[GodotRC] Received unknown message: ", message)
+		Log.WARN("[GodotRC] Received unknown message: " + message)
 	if response != null:
 		send_response(peer_id, response, parsed.id)
 
@@ -65,6 +81,7 @@ func send_response(peer_id: int, data, response_id: int):
 
 
 func send_notification(peer_id: int, name: String, data):
+	Log.TRACE("[GodotRC] Sending notification: " + name)
 	server.send(peer_id, JSON.stringify({"method": name, "params": data}))
 
 
@@ -134,31 +151,47 @@ func get_node_tree(node: Node) -> Dictionary:
 	return tree
 
 
-func wip() -> void:
-	get_editor_interface().open_scene_from_path("res://something.tscn")
-	var root = get_editor_interface().get_edited_scene_root()
-	print(root.scene_file_path)
+func wip(_params) -> void:
+	# var editor_node: Node = get_node("/root").find_child("*EditorNode*", false, false)
+	# editor_node.push_item(null)
+	# print(editor_node.scene_root)
+	var root: Node = get_editor_interface().get_edited_scene_root()
+	print(root.get_parent().get_children())
+	# print(root, " owned by ", root.owner)
+	# for child in root.get_children():
+	# 	print(child, " owned by ", child.owner)
+	# 	for child2 in child.get_children():
+	# 		print(child2, " owned by ", child2.owner)
+	# get_editor_interface().open_scene_from_path("res://something.tscn")
+	# var node = root.find_child("asdf")
+	# var node2d = Node2D.new()
+	# node2d.set("transform", node.transform)
+	# print(node.transform)
+	# root.add_child(node2d)
+	# node2d.owner = root
 
 
 func _on_scene_child_order_changed() -> void:
-	notify_scene_change()
+	print(123)
+	need_to_notify_scene_change = true
 
 
 func _on_scene_tree_entered() -> void:
-	notify_scene_change()
+	need_to_notify_scene_change = true
 
 
 func _on_replace_by(_node: Node) -> void:
-	notify_scene_change()
+	need_to_notify_scene_change = true
 
 
 func _on_node_renamed() -> void:
-	notify_scene_change()
+	need_to_notify_scene_change = true
 
 
 func notify_scene_change() -> void:
 	for peer in server.get_peers():
 		var scene_path := get_editor_interface().get_edited_scene_root().scene_file_path
+		scene_path = ProjectSettings.globalize_path(scene_path)
 		send_notification(peer, "scene-changed", scene_path)
 
 
@@ -213,8 +246,120 @@ func rename_node(params: Dictionary) -> void:
 # 	return null
 
 
-func _on_scene_changed(scene_root: Node):
+func _on_scene_changed(scene_root: Node) -> void:
 	if previous_scene:
 		disconnect_signals(previous_scene, true)
 	connect_signals(scene_root, true)
 	previous_scene = scene_root
+
+
+func save_scene(_params) -> void:
+	get_editor_interface().save_scene()
+
+
+func move_node(params: Dictionary) -> int:
+	var parent_id: int = params.parent
+	var node_id: int = params.node
+	var index: int = params.index
+	var silent: bool = params.get("silent", false)
+
+	var parent: Node = instance_from_id(parent_id)
+	var node: Node = instance_from_id(node_id)
+	if node.get_parent() != parent:
+		node.reparent(parent)
+	parent.move_child(node, index)
+	get_editor_interface().mark_scene_as_unsaved()
+	return node.get_instance_id()
+
+
+func remove_node(node_id: int) -> void:
+	var node: Node = instance_from_id(node_id)
+	node.queue_free()
+	get_editor_interface().mark_scene_as_unsaved()
+
+
+func node_change_type(params: Dictionary) -> void:
+	var node_id: int = params.node_id
+	var new_type: String = params.new_type
+	var editor_node = get_node("/root").find_child("*EditorNode*", false, false)
+
+	var old_node: Node = instance_from_id(node_id)
+	var new_node: Node = ClassDB.instantiate(new_type)
+
+	# # TODO: check custom types
+	var default_old_node: Node = ClassDB.instantiate(old_node.get_class())
+
+	var prop_list = old_node.get_property_list()
+	for prop in prop_list:
+		if prop.usage & PROPERTY_USAGE_STORAGE == 0:
+			continue
+
+		var default_val: Variant = default_old_node.get(prop.name)
+		if default_val != old_node.get(prop.name):
+			new_node.set(prop.name, old_node.get(prop.name))
+	default_old_node.free()
+
+	editor_node.push_item(null)
+
+	var signals := old_node.get_signal_list()
+	for sl in signals:
+		var connection_list = old_node.get_signal_connection_list(sl.name)
+
+		for connection in connection_list:
+			if connection.flags & CONNECT_PERSIST == 0:
+				continue
+
+			new_node.connect(sl.name, connection.callable, CONNECT_PERSIST)
+
+	new_node.set_name(old_node.name)
+
+	connect_signals(new_node)
+
+	# TODO: remember size of anchored control
+
+	var is_scene_root = old_node == get_editor_interface().get_edited_scene_root()
+
+	if is_scene_root:
+		editor_node.set_edited_scene(new_node)
+
+	# TODO: think about when to free old_node, because currently we are leaking memory
+	# TODO: fix: Condition "p_node->data.parent" is true. p_node here is new_node
+	old_node.replace_by(new_node, true)
+
+	if is_scene_root:
+		# TODO: fix: Condition "!is_inside_tree()" is true. Returning: Transform3D()
+		for child in old_node.get_children():
+			child.owner = null
+			child.reparent(new_node)
+			set_owner_recursively(child, new_node)
+
+	for child in new_node.get_children():
+		child.call("set_transform", child.call("get_transform"))
+
+	editor_node.push_item(new_node)
+
+	need_to_notify_scene_change = true
+
+	if get_editor_interface().get_edited_scene_root().get_parent().get_child_count() > 0:
+		Log.WARN("[GodotRC] Editor SubViewport has multiple child nodes!")
+
+
+func set_owner_recursively(node: Node, owner) -> void:
+	node.owner = owner
+	for child in node.get_children():
+		set_owner_recursively(child, owner)
+
+
+func node_add(params: Dictionary) -> void:
+	var parent_id: int = params.parent_id
+	var index: int = params.index
+	var type: String = params.type
+
+	var parent: Node = instance_from_id(parent_id)
+	var new_node: Node = ClassDB.instantiate(type)
+	new_node.name = type
+
+	connect_signals(new_node)
+	parent.add_child(new_node, true)
+	parent.move_child(new_node, index)
+	new_node.owner = parent
