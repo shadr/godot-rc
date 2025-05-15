@@ -1,5 +1,5 @@
 @tool
-class_name RemoteControlPlugin
+class_name GodotRCPlugin
 extends EditorPlugin
 
 # TODO: connect scene_opened signal
