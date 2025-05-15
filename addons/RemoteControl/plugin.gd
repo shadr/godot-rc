@@ -20,6 +20,7 @@ var METHODS: Array = [
 	["remove-node", remove_node, false],
 	["node-change-type", node_change_type, false],
 	["node-add", node_add, false],
+	["node-duplicate", node_duplicate, false],
 	["wip", wip, false],
 ]
 
@@ -148,6 +149,13 @@ func get_node_tree(node: Node) -> Dictionary:
 		"children": children,
 		"id": node.get_instance_id(),
 	}
+	var scene_file_path = ProjectSettings.globalize_path(node.scene_file_path)
+	if scene_file_path:
+		tree.scene_absolute_path = scene_file_path
+		tree.scene_res_path = node.scene_file_path
+	var script = node.get_script()
+	if script:
+		tree.script_path = script.get_path()
 	return tree
 
 
@@ -172,7 +180,6 @@ func wip(_params) -> void:
 
 
 func _on_scene_child_order_changed() -> void:
-	print(123)
 	need_to_notify_scene_change = true
 
 
@@ -340,7 +347,10 @@ func node_change_type(params: Dictionary) -> void:
 
 	need_to_notify_scene_change = true
 
-	if get_editor_interface().get_edited_scene_root().get_parent().get_child_count() > 0:
+	if (
+		is_scene_root
+		&& get_editor_interface().get_edited_scene_root().get_parent().get_child_count() > 0
+	):
 		Log.WARN("[GodotRC] Editor SubViewport has multiple child nodes!")
 
 
@@ -362,4 +372,25 @@ func node_add(params: Dictionary) -> void:
 	connect_signals(new_node)
 	parent.add_child(new_node, true)
 	parent.move_child(new_node, index)
-	new_node.owner = parent
+	if parent == get_editor_interface().get_edited_scene_root():
+		new_node.owner = parent
+	else:
+		new_node.owner = parent.owner
+	get_editor_interface().mark_scene_as_unsaved()
+
+
+func node_duplicate(node_id: int) -> void:
+	var node: Node = instance_from_id(node_id)
+	if node == get_editor_interface().get_edited_scene_root():
+		return
+
+	var new_node: Node = node.duplicate()
+	var parent = node.get_parent()
+	parent.add_child(new_node, true)
+	parent.move_child(new_node, node.get_index() + 1)
+
+	connect_signals(new_node, true)
+
+	set_owner_recursively(new_node, node.owner)
+
+	need_to_notify_scene_change = true
