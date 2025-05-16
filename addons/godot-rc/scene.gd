@@ -52,12 +52,15 @@ func get_node_tree(node: Node) -> Dictionary:
 	var children: Array = []
 	for child in node.get_children():
 		children.push_back(get_node_tree(child))
+	var owner_node = node.owner
 	var tree = {
 		"name": node.name,
 		"type": node.get_class(),
 		"children": children,
 		"id": node.get_instance_id(),
 	}
+	if node.owner:
+		tree.owner = node.owner.get_instance_id()
 	var scene_file_path = ProjectSettings.globalize_path(node.scene_file_path)
 	if scene_file_path:
 		tree.scene_absolute_path = scene_file_path
