@@ -6,6 +6,7 @@ extends EditorPlugin
 # TODO: add undo-redo history
 # TODO: feat: send error as response
 # TODO: connect signals to current scene when plugin enabled
+# TODO: fix: force readable name when moving nodes
 
 var grc: GodotRC = null
 var need_to_notify_scene_change := false
@@ -21,7 +22,9 @@ func _enter_tree() -> void:
 	grc = GodotRC.new()
 	add_child(grc)
 
-	var command_handlers = [GRCCommandsGdscript, GRCCommandsMisc, GRCCommandsScene]
+	var command_handlers = [
+		GRCCommandsGdscript, GRCCommandsMisc, GRCCommandsScene, GRCCommandsInspector
+	]
 	for i in len(command_handlers):
 		var handler_class = command_handlers[i]
 		var handler: Node = handler_class.new()
