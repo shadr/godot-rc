@@ -88,7 +88,8 @@ func get_node_properties(params: Dictionary) -> Array:
 				"visible_name": visible_name,
 				"usage": prop.usage,
 				"hint": prop.hint,
-				"hint_string": prop.hint_string
+				"hint_string": prop.hint_string,
+				"type": prop.type,
 			}
 
 			where_to_push.back().push_back(serialized_prop)
@@ -98,7 +99,8 @@ func get_node_properties(params: Dictionary) -> Array:
 			"visible_name": "Script",
 			"usage": script.usage,
 			"hint": script.hint,
-			"hint_string": script.hint_string
+			"hint_string": script.hint_string,
+			"type": script.type,
 		}
 		res[0].children.push_back(serialized_script)
 	res.reverse()
