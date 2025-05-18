@@ -118,3 +118,6 @@ func change_property(params: Dictionary) -> void:
 
 	var object = instance_from_id(object_id)
 	object.set(property, value)
+	grc.send_notification_to_all_peers(
+		"property-changed", {"object": object_id, "property": property, "value": value}
+	)
