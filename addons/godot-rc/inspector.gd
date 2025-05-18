@@ -6,12 +6,12 @@ var grc: GodotRC
 
 
 func register_commands() -> void:
-	grc.register_command("node-properties", get_node_properties, true)
+	grc.register_command("object-properties", get_object_properties, true)
 	grc.register_command("inspector-change-property", change_property)
 
 
-func get_node_properties(params: Dictionary) -> Array:
-	var node_id: int = params.node_id
+func get_object_properties(params: Dictionary) -> Array:
+	var object_id: int = params.object_id
 	var opened: Array
 	# TODO: handle unfolded properties
 	if params.opened_props:
@@ -19,9 +19,9 @@ func get_node_properties(params: Dictionary) -> Array:
 	else:
 		opened = []
 
-	var node: Node = instance_from_id(node_id)
+	var object: Object = instance_from_id(object_id)
 
-	var prop_list = node.get_property_list()
+	var prop_list = object.get_property_list()
 	var res = []
 	var group_base = ""
 	var subgroup_base = ""
@@ -91,7 +91,7 @@ func get_node_properties(params: Dictionary) -> Array:
 				"hint": prop.hint,
 				"hint_string": prop.hint_string,
 				"type": prop.type,
-				"value": node.get(prop.name),
+				"value": object.get(prop.name),
 			}
 
 			where_to_push.back().push_back(serialized_prop)
