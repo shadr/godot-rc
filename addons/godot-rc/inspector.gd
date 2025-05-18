@@ -20,6 +20,7 @@ func get_object_properties(params: Dictionary) -> Array:
 		opened = []
 
 	var object: Object = instance_from_id(object_id)
+	var default_object: Object = ClassDB.instantiate(object.get_class())
 
 	var prop_list = object.get_property_list()
 	var res = []
@@ -84,6 +85,9 @@ func get_object_properties(params: Dictionary) -> Array:
 				visible_name = visible_name.trim_prefix(subgroup_base.capitalize()).trim_prefix(" ")
 			elif pushing_to_group:
 				visible_name = visible_name.trim_prefix(group_base.capitalize()).trim_prefix(" ")
+			var value = object.get(prop.name)
+			var default_val = default_object.get(prop.name)
+			var non_default = default_val != value
 			var serialized_prop = {
 				"property": prop.name,
 				"visible_name": visible_name,
@@ -91,11 +95,13 @@ func get_object_properties(params: Dictionary) -> Array:
 				"hint": prop.hint,
 				"hint_string": prop.hint_string,
 				"type": prop.type,
-				"value": object.get(prop.name),
+				"value": value,
+				"non_default": non_default
 			}
 
 			where_to_push.back().push_back(serialized_prop)
 	if script:
+		var non_default = object.get_script() != null
 		var serialized_script = {
 			"property": script.name,
 			"visible_name": "Script",
@@ -104,6 +110,7 @@ func get_object_properties(params: Dictionary) -> Array:
 			"hint_string": script.hint_string,
 			"type": script.type,
 			"value": script.get(script.name),
+			"non_default": non_default
 		}
 		res[0].children.push_back(serialized_script)
 	res.reverse()
