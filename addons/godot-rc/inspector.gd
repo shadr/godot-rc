@@ -7,6 +7,7 @@ var grc: GodotRC
 
 func register_commands() -> void:
 	grc.register_command("node-properties", get_node_properties, true)
+	grc.register_command("inspector-change-property", change_property)
 
 
 func get_node_properties(params: Dictionary) -> Array:
@@ -90,6 +91,7 @@ func get_node_properties(params: Dictionary) -> Array:
 				"hint": prop.hint,
 				"hint_string": prop.hint_string,
 				"type": prop.type,
+				"value": node.get(prop.name),
 			}
 
 			where_to_push.back().push_back(serialized_prop)
@@ -101,8 +103,18 @@ func get_node_properties(params: Dictionary) -> Array:
 			"hint": script.hint,
 			"hint_string": script.hint_string,
 			"type": script.type,
+			"value": script.get(script.name),
 		}
 		res[0].children.push_back(serialized_script)
 	res.reverse()
 
 	return res
+
+
+func change_property(params: Dictionary) -> void:
+	var object_id: int = params.object_id
+	var property: String = params.property
+	var value = params.value
+
+	var object = instance_from_id(object_id)
+	object.set(property, value)
