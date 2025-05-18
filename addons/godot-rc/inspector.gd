@@ -113,11 +113,17 @@ func get_node_properties(params: Dictionary) -> Array:
 
 func change_property(params: Dictionary) -> void:
 	var object_id: int = params.object_id
-	var property: String = params.property
+	var property = params.property
 	var value = params.value
 
 	var object = instance_from_id(object_id)
-	object.set(property, value)
+
+	if property is String:
+		object.set(property, value)
+	elif property is Array:
+		var prop_path = ":".join(property)
+		object.set_indexed(prop_path, value)
+
 	grc.send_notification_to_all_peers(
 		"property-changed", {"object": object_id, "property": property, "value": value}
 	)
