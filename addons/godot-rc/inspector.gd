@@ -17,13 +17,16 @@ func get_object_properties(params: Dictionary) -> Array:
 	else:
 		object_id = params.object_id
 	var opened: Array
-	# TODO: handle unfolded properties
 	if params.has("opened_props") and params.opened_props is Array:
-		opened = params.opened_props
+		opened = params.opened_props.map(func(element): return int(element))
 	else:
 		opened = []
 
 	var object: Object = instance_from_id(object_id)
+	return collect_object_properties(object, opened)
+
+
+func collect_object_properties(object: Object, opened: Array) -> Array:
 	var default_object: Object = ClassDB.instantiate(object.get_class())
 
 	var prop_list = object.get_property_list()
@@ -93,7 +96,10 @@ func get_object_properties(params: Dictionary) -> Array:
 			var default_val = default_object.get(prop.name)
 			var non_default = default_val != value
 			if value is Object:
-				value = value.get_instance_id()
+				var id = value.get_instance_id()
+				if id in opened:
+					prop.children = collect_object_properties(value, opened)
+				value = id
 			prop.property = prop.name
 			prop.visible_name = visible_name
 			prop.value = value
