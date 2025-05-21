@@ -31,70 +31,45 @@ func collect_object_properties(object: Object, opened: Array) -> Array:
 
 	var prop_list = object.get_property_list()
 	var res = []
-	var group_base = ""
-	var subgroup_base = ""
 	var where_to_push = [res]
-	# TODO: remove these booleans, just use where_to_pus length
-	var pushing_to_category = false
-	var pushing_to_group = false
-	var pushing_to_subgroup = false
+	var group_prefixes = [""]
 	var script = null
 	for prop in prop_list:
 		if prop.name == "script":
 			script = prop
 			continue
-		if prop.usage & PROPERTY_USAGE_SUBGROUP:
-			pushing_to_subgroup = true
-			subgroup_base = prop.hint_string
-			var subgroup = {"name": prop.name, "children": []}
-			where_to_push.back().push_back(subgroup)
-			where_to_push.push_back(subgroup.children)
-			continue
-		elif prop.usage & PROPERTY_USAGE_GROUP:
-			if pushing_to_subgroup:
-				where_to_push.pop_back()
-				pushing_to_subgroup = false
-			if pushing_to_group:
-				where_to_push.pop_back()
-				pushing_to_group = false
-			pushing_to_group = true
-			group_base = prop.hint_string
+		var tusage = (
+			prop.usage & (PROPERTY_USAGE_SUBGROUP | PROPERTY_USAGE_GROUP | PROPERTY_USAGE_CATEGORY)
+		)
+		if tusage:
+			var grouping_index = -1
+			match tusage:
+				PROPERTY_USAGE_SUBGROUP:
+					grouping_index = 3
+				PROPERTY_USAGE_GROUP:
+					grouping_index = 2
+				PROPERTY_USAGE_CATEGORY:
+					grouping_index = 1
+			where_to_push.resize(grouping_index)
+			group_prefixes.resize(where_to_push.size())
 			if prop.name != "":
-				var group = {"name": prop.name, "children": []}
-				where_to_push.back().push_back(group)
-				where_to_push.push_back(group.children)
+				var grouping = {"name": prop.name, "children": []}
+				where_to_push.back().push_back(grouping)
+				group_prefixes.push_back(prop.hint_string)
+				where_to_push.push_back(grouping.children)
 			else:
 				where_to_push.push_back([])
 			continue
-		elif prop.usage & PROPERTY_USAGE_CATEGORY:
-			if pushing_to_subgroup:
-				where_to_push.pop_back()
-				pushing_to_subgroup = false
-			if pushing_to_group:
-				where_to_push.pop_back()
-				pushing_to_group = false
-			if pushing_to_category:
-				where_to_push.pop_back()
-				pushing_to_category = false
-			pushing_to_category = true
-			var category = {"name": prop.name, "children": []}
-			where_to_push.back().push_back(category)
-			where_to_push.push_back(category.children)
-			continue
-		if pushing_to_subgroup && !prop.name.begins_with(subgroup_base):
+		while where_to_push.size() > 2 && not prop.name.begins_with(group_prefixes.back()):
 			where_to_push.pop_back()
-			subgroup_base = ""
-			pushing_to_subgroup = false
-		if pushing_to_group && !prop.name.begins_with(group_base):
-			where_to_push.pop_back()
-			group_base = ""
-			pushing_to_group = false
+			group_prefixes.pop_back()
 		if prop.usage & PROPERTY_USAGE_EDITOR:
 			var visible_name: String = prop.name.capitalize()
-			if pushing_to_subgroup:
-				visible_name = visible_name.trim_prefix(subgroup_base.capitalize()).trim_prefix(" ")
-			elif pushing_to_group:
-				visible_name = visible_name.trim_prefix(group_base.capitalize()).trim_prefix(" ")
+
+			if !group_prefixes.is_empty():
+				visible_name = (
+					visible_name.trim_prefix(group_prefixes.back().capitalize()).trim_prefix(" ")
+				)
 			var value = object.get(prop.name)
 			var default_val = default_object.get(prop.name)
 			var non_default = default_val != value
