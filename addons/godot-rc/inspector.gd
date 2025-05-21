@@ -59,9 +59,12 @@ func collect_object_properties(object: Object, opened: Array) -> Array:
 				pushing_to_group = false
 			pushing_to_group = true
 			group_base = prop.hint_string
-			var group = {"name": prop.name, "children": []}
-			where_to_push.back().push_back(group)
-			where_to_push.push_back(group.children)
+			if prop.name != "":
+				var group = {"name": prop.name, "children": []}
+				where_to_push.back().push_back(group)
+				where_to_push.push_back(group.children)
+			else:
+				where_to_push.push_back([])
 			continue
 		elif prop.usage & PROPERTY_USAGE_CATEGORY:
 			if pushing_to_subgroup:
