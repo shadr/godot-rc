@@ -11,10 +11,14 @@ func register_commands() -> void:
 
 
 func get_object_properties(params: Dictionary) -> Array:
-	var object_id: int = params.object_id
+	var object_id: int
+	if params.object_id is String:
+		object_id = int(params.object_id)
+	else:
+		object_id = params.object_id
 	var opened: Array
 	# TODO: handle unfolded properties
-	if params.opened_props:
+	if params.has("opened_props") and params.opened_props is Array:
 		opened = params.opened_props
 	else:
 		opened = []
@@ -88,31 +92,21 @@ func get_object_properties(params: Dictionary) -> Array:
 			var value = object.get(prop.name)
 			var default_val = default_object.get(prop.name)
 			var non_default = default_val != value
-			var serialized_prop = {
-				"property": prop.name,
-				"visible_name": visible_name,
-				"usage": prop.usage,
-				"hint": prop.hint,
-				"hint_string": prop.hint_string,
-				"type": prop.type,
-				"value": value,
-				"non_default": non_default
-			}
+			if value is Object:
+				value = value.get_instance_id()
+			prop.property = prop.name
+			prop.visible_name = visible_name
+			prop.value = value
+			prop.non_default = non_default
 
-			where_to_push.back().push_back(serialized_prop)
+			where_to_push.back().push_back(prop)
 	if script:
 		var non_default = object.get_script() != null
-		var serialized_script = {
-			"property": script.name,
-			"visible_name": "Script",
-			"usage": script.usage,
-			"hint": script.hint,
-			"hint_string": script.hint_string,
-			"type": script.type,
-			"value": script.get(script.name),
-			"non_default": non_default
-		}
-		res[0].children.push_back(serialized_script)
+		script.property = script.name
+		script.visible_name = "Script"
+		script.value = object.get_script()
+		script.non_default = object.get_script() != null
+		res[0].children.push_back(script)
 	res.reverse()
 
 	return res
