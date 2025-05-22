@@ -6,7 +6,7 @@ var grc: GodotRC
 
 
 func register_commands() -> void:
-	grc.register_command("get-nodes-for-onready", get_nodes_for_onready)
+	grc.register_command("get-nodes-for-onready", get_nodes_for_onready, true)
 
 
 func get_nodes_for_onready(path: String) -> Array:
