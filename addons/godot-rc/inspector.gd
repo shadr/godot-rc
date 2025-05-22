@@ -73,11 +73,14 @@ func collect_object_properties(object: Object, opened: Array) -> Array:
 			var value = object.get(prop.name)
 			var default_val = default_object.get(prop.name)
 			var non_default = default_val != value
-			if value is Object:
-				var id = value.get_instance_id()
-				if id in opened:
-					prop.children = collect_object_properties(value, opened)
-				value = id
+			if prop.type == TYPE_OBJECT:
+				if value:
+					var id = value.get_instance_id()
+					if id in opened:
+						prop.children = collect_object_properties(value, opened)
+					value = id
+				else:
+					value = null
 			prop.property = prop.name
 			prop.visible_name = visible_name
 			prop.value = value
