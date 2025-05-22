@@ -8,6 +8,7 @@ var grc: GodotRC
 func register_commands() -> void:
 	grc.register_command("object-properties", get_object_properties, true)
 	grc.register_command("inspector-change-property", change_property)
+	grc.register_command("inspector-query-node-paths", query_node_paths, true)
 
 
 func get_object_properties(params: Dictionary) -> Array:
@@ -90,6 +91,12 @@ func collect_object_properties(object: Object, opened: Array) -> Array:
 					value.size.y,
 					value.size.z
 				]
+			elif prop.type == TYPE_NODE_PATH and not value.is_empty():
+				var target_node: Node = object.get_node(value)
+				prop.additional_info = {
+					"name": target_node.name,
+					"type": target_node.get_class(),
+				}
 			prop.property = prop.name
 			prop.visible_name = visible_name
 			prop.value = value
@@ -124,3 +131,23 @@ func change_property(params: Dictionary) -> void:
 	grc.send_notification_to_all_peers(
 		"property-changed", {"object": object_id, "property": property, "value": value}
 	)
+
+
+func query_node_paths(params: Dictionary) -> Array:
+	var object_id: int = params.object_id
+	var classes: Array = params.classes
+
+	var object: Node = instance_from_id(object_id)
+
+	# REVIEW: is it really correct that owner of a node in an editor always a scene root ?
+	var scene_root: Node = object.owner
+
+	var suitable_nodes = {}
+	for cl in classes:
+		for child in scene_root.find_children("*", cl):
+			suitable_nodes[child] = null
+	var paths = []
+	for node in suitable_nodes.keys():
+		paths.push_back(object.get_path_to(node))
+
+	return paths
