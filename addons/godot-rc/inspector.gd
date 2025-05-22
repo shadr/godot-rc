@@ -81,6 +81,15 @@ func collect_object_properties(object: Object, opened: Array) -> Array:
 					value = id
 				else:
 					value = null
+			elif prop.type == TYPE_AABB:
+				value = [
+					value.position.x,
+					value.position.y,
+					value.position.z,
+					value.size.x,
+					value.size.y,
+					value.size.z
+				]
 			prop.property = prop.name
 			prop.visible_name = visible_name
 			prop.value = value
